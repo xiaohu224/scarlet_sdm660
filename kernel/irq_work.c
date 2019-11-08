@@ -28,7 +28,7 @@ static DEFINE_PER_CPU(struct llist_head, lazy_list);
  */
 static bool irq_work_claim(struct irq_work *work)
 {
-	int oflags;
+	int flags, oflags, nflags;
 
 	oflags = atomic_fetch_or(IRQ_WORK_CLAIMED, &work->flags);
 	/*
@@ -36,8 +36,18 @@ static bool irq_work_claim(struct irq_work *work)
 	 * The pairing smp_mb() in irq_work_run() makes sure
 	 * everything we did before is visible.
 	 */
-	if (oflags & IRQ_WORK_PENDING)
-		return false;
+	flags = atomic_read(&work->flags) & ~IRQ_WORK_PENDING;
+	for (;;) {
+		nflags = flags | IRQ_WORK_CLAIMED;
+		oflags = atomic_cmpxchg(&work->flags, flags, nflags);
+		if (oflags == flags)
+			break;
+		if (oflags & IRQ_WORK_PENDING)
+			return false;
+		flags = oflags;
+		cpu_relax();
+	}
+
 	return true;
 }
 
@@ -134,6 +144,7 @@ static void irq_work_run_list(struct llist_head *list)
 {
 	struct irq_work *work, *tmp;
 	struct llist_node *llnode;
+	int flags;
 
 	BUG_ON(!irqs_disabled());
 
@@ -148,22 +159,18 @@ static void irq_work_run_list(struct llist_head *list)
 		 * The PENDING bit acts as a lock, and we own it, so we can clear it
 		 * without atomic ops.
 		 */
-		flags = atomic_read(&work->flags);
-		flags &= ~IRQ_WORK_PENDING;
-		atomic_set(&work->flags, flags);
+		flags = atomic_read(&work->flags) & ~IRQ_WORK_PENDING;
+		atomic_xchg(&work->flags, flags);
 
 		/*
 		 * See irq_work_claim().
 		 */
 		smp_mb();
 
-		lockdep_irq_work_enter(flags);
 		work->func(work);
-		lockdep_irq_work_exit(flags);
-
 		/*
-		 * Clear the BUSY bit, if set, and return to the free state if no-one
-		 * else claimed it meanwhile.
+		 * Clear the BUSY bit and return to the free state if
+		 * no-one else claimed it meanwhile.
 		 */
 		(void)atomic_cmpxchg(&work->flags, flags, flags & ~IRQ_WORK_BUSY);
 	}
