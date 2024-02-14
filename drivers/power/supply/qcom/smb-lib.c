@@ -2952,22 +2952,22 @@ int smblib_get_prop_die_health(struct smb_charger *chg,
 	return 0;
 }
 
-#define CDP_CURRENT_UA			1500000
+#define CDP_CURRENT_UA			3300000
 #ifdef CONFIG_MACH_LONGCHEER
-#define DCP_CURRENT_UA			2000000
-#define HVDCP2_CURRENT_UA		1500000
+#define DCP_CURRENT_UA			3300000
+#define HVDCP2_CURRENT_UA		3300000
 #if defined(CONFIG_MACH_XIAOMI_WHYRED) || defined(CONFIG_MACH_XIAOMI_TULIP)
-#define HVDCP_CURRENT_UA		2000000
+#define HVDCP_CURRENT_UA		3300000
 #else
-#define HVDCP_CURRENT_UA		2900000
+#define HVDCP_CURRENT_UA		3300000
 #endif
 #else
-#define DCP_CURRENT_UA			1500000
-#define HVDCP_CURRENT_UA		3000000
+#define DCP_CURRENT_UA			3300000
+#define HVDCP_CURRENT_UA		3300000
 #endif
 #define TYPEC_DEFAULT_CURRENT_UA	900000
 #define TYPEC_MEDIUM_CURRENT_UA		1500000
-#define TYPEC_HIGH_CURRENT_UA		3000000
+#define TYPEC_HIGH_CURRENT_UA		3300000
 static int get_rp_based_dcp_current(struct smb_charger *chg, int typec_mode)
 {
 	int rp_ua;
@@ -4249,7 +4249,7 @@ static void smblib_force_legacy_icl(struct smb_charger *chg, int pst)
 #if defined(CONFIG_MACH_XIAOMI_WAYNE) || defined(CONFIG_MACH_XIAOMI_LAVENDER)
 		vote(chg->usb_icl_votable, USER_VOTER, false, 0);
 #endif
-		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 1500000);
+		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 3300000);
 		break;
 	case POWER_SUPPLY_TYPE_USB_DCP:
 #if defined(CONFIG_MACH_XIAOMI_WAYNE) || defined(CONFIG_MACH_XIAOMI_LAVENDER)
@@ -4269,22 +4269,22 @@ static void smblib_force_legacy_icl(struct smb_charger *chg, int pst)
 		vote(chg->usb_icl_votable, USER_VOTER, false, 0);
 #endif
 #ifdef CONFIG_MACH_XIAOMI_WHYRED
-		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 500000);
+		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 3300000);
 #else
-		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 1000000);
+		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 3300000);
 #endif
 #else
-		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 100000);
+		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 3300000);
 #endif
 		break;
 	case POWER_SUPPLY_TYPE_USB_HVDCP:
 #ifdef CONFIG_MACH_LONGCHEER
 #if defined(CONFIG_MACH_XIAOMI_TULIP)
-		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 2000000);
+		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 3300000);
 #elif defined(CONFIG_MACH_XIAOMI_WAYNE) || defined(CONFIG_MACH_XIAOMI_LAVENDER)
-		vote(chg->usb_icl_votable, USER_VOTER, true, 1500000);
+		vote(chg->usb_icl_votable, USER_VOTER, true, 3300000);
 #else
-		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 1500000);
+		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 3300000);
 #endif
 		break;
 #endif
@@ -4294,16 +4294,16 @@ static void smblib_force_legacy_icl(struct smb_charger *chg, int pst)
 #elif defined(CONFIG_MACH_XIAOMI_WAYNE) || defined(CONFIG_MACH_XIAOMI_LAVENDER)
 		vote(chg->usb_icl_votable, USER_VOTER, false, 0);
 		if (is_global_version)
-			vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 2300000);
-		else
 			vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 2900000);
+		else
+			vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 3300000);
 #else
 		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 3000000);
 #endif
 		break;
 	default:
 		smblib_err(chg, "Unknown APSD %d; forcing suspend\n", pst);
-		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 0);
+		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 3300000);
 		break;
 	}
 }
@@ -4729,7 +4729,7 @@ static void smblib_handle_typec_removal(struct smb_charger *chg)
 	cancel_delayed_work_sync(&chg->hvdcp_detect_work);
 
 	/* reset input current limit voters */
-	vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 0);
+	vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 100000);
 	vote(chg->usb_icl_votable, PD_VOTER, false, 0);
 	vote(chg->usb_icl_votable, USB_PSY_VOTER, false, 0);
 	vote(chg->usb_icl_votable, DCP_VOTER, false, 0);
