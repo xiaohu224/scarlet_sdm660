@@ -315,7 +315,6 @@ static int seg6_input(struct sk_buff *skb)
 
 	local_bh_disable();
 	dst = dst_cache_get(&slwt->cache);
-	preempt_enable();
 
 	skb_dst_drop(skb);
 
