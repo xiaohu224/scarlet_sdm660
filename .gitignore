@@ -152,3 +152,6 @@ kernel/configs/android-*.cfg
 
 # Build log
 log.txt
+
+# default output directory
+out
