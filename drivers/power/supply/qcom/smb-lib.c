@@ -4290,15 +4290,15 @@ static void smblib_force_legacy_icl(struct smb_charger *chg, int pst)
 #endif
 	case POWER_SUPPLY_TYPE_USB_HVDCP_3:
 #if defined(CONFIG_MACH_XIAOMI_WHYRED) || defined(CONFIG_MACH_XIAOMI_TULIP)
-		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 2000000);
+		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 4000000);
 #elif defined(CONFIG_MACH_XIAOMI_WAYNE) || defined(CONFIG_MACH_XIAOMI_LAVENDER)
 		vote(chg->usb_icl_votable, USER_VOTER, false, 0);
 		if (is_global_version)
-			vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 2900000);
+			vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 4000000);
 		else
 			vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 4000000);
 #else
-		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 3000000);
+		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 4000000);
 #endif
 		break;
 	default:
