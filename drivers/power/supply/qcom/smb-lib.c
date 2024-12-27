@@ -3027,6 +3027,16 @@ static int smblib_handle_usb_current(struct smb_charger *chg,
 {
 	int rc = 0, rp_ua, typec_mode;
 
+#ifdef CONFIG_FORCE_FAST_CHARGE
+	if (force_fast_charge > 0 &&
+			chg->real_charger_type == POWER_SUPPLY_TYPE_USB) {
+		if (usb_current > 0 && usb_current < USBIN_500MA)
+			usb_current = USBIN_500MA;
+		else if (usb_current >= USBIN_500MA)
+			usb_current = USBIN_900MA;
+	}
+#endif
+
 	if (chg->real_charger_type == POWER_SUPPLY_TYPE_USB_FLOAT) {
 		if (usb_current == -ETIMEDOUT) {
 			/*
