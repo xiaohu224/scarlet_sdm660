@@ -829,7 +829,7 @@ void psi_task_change(struct task_struct *task, int clear, int set)
 			psi_schedule_poll_work(group, 1);
 
 		if (wake_clock && !delayed_work_pending(&group->avgs_work))
-			queue_delayed_work(system_power_efficient_wq, &group->avgs_work, PSI_FREQ);
+			schedule_delayed_work(&group->avgs_work, PSI_FREQ);
 	}
 }
 
