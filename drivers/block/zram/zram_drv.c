@@ -2076,9 +2076,7 @@ static void zram_slot_free_notify(struct block_device *bdev,
 {
 	struct zram *zram;
 
-    down_write(&zram->lock);
-	zram_free_page(zram, index);
-	up_write(&zram->lock);
+	zram = bdev->bd_disk->private_data;
 
 	atomic64_inc(&zram->stats.notify_free);
 	if (!zram_slot_trylock(zram, index)) {
@@ -2194,7 +2192,6 @@ static ssize_t disksize_store(struct device *dev,
 static u64 calculate_zram_size(void)
 {
     u64 total_ram_bytes = totalram_pages() * PAGE_SIZE;
-
     return total_ram_bytes;
 }
 
@@ -2202,6 +2199,7 @@ static u64 calculate_zram_size(void)
 disksize = calculate_zram_size();
 if (!disksize)
     return -EINVAL;
+
 
 
 	down_write(&zram->init_lock);
