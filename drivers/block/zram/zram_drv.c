@@ -2190,9 +2190,19 @@ static ssize_t disksize_store(struct device *dev,
 	int err;
 	u32 prio;
 
-	disksize = (u64)8192 * SZ_1M;
-	if (!disksize)
-		return -EINVAL;
+/* Function to set zram disk size equal to total RAM */
+static u64 calculate_zram_size(void)
+{
+    u64 total_ram_bytes = totalram_pages() * PAGE_SIZE;
+
+    return total_ram_bytes;
+}
+
+/* Somewhere in the zram initialization function */
+disksize = calculate_zram_size();
+if (!disksize)
+    return -EINVAL;
+
 
 	down_write(&zram->init_lock);
 	if (init_done(zram)) {
