@@ -2184,14 +2184,6 @@ static u64 calculate_zram_size(void)
     return (u64)totalram_pages() * PAGE_SIZE;
 }
 
-#include <linux/kernel.h>
-#include <linux/module.h>
-#include <linux/init.h>
-#include <linux/slab.h>
-#include <linux/mm.h>
-#include <linux/zram.h>
-#include <linux/device.h>
-
 static u64 calculate_zram_size(void)
 {
     return (u64)totalram_pages() * PAGE_SIZE; // 计算总物理内存大小
