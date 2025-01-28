@@ -2179,69 +2179,48 @@ static void zram_reset_device(struct zram *zram)
 	up_write(&zram->init_lock);
 }
 
-static ssize_t disksize_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t len)
-{
-	u64 disksize;
-	struct zcomp *comp;
-	struct zram *zram = dev_to_zram(dev);
-	int err;
-	u32 prio;
-
-/* Function to set zram disk size equal to total RAM */
 static u64 calculate_zram_size(void)
 {
-    u64 total_ram_bytes = totalram_pages() * PAGE_SIZE;
-    return total_ram_bytes;
+    return (u64)totalram_pages() * PAGE_SIZE;
 }
 
-/* Somewhere in the zram initialization function */
-disksize = calculate_zram_size();
-if (!disksize)
-    return -EINVAL;
+static ssize_t disksize_store(struct device *dev,
+                               struct device_attribute *attr,
+                               const char *buf, size_t len)
+{
+    struct zram *zram = dev_to_zram(dev);
+    u64 disksize;
+    int err;
 
+    // 计算与物理内存大小相同的 zram 大小
+    disksize = calculate_zram_size();
+    if (!disksize)
+        return -EINVAL;
 
+    down_write(&zram->init_lock);
+    if (init_done(zram)) {
+        // 设备已初始化，无法更改大小
+        err = -EBUSY;
+        goto out_unlock;
+    }
 
-	down_write(&zram->init_lock);
-	if (init_done(zram)) {
-		pr_info("Cannot change disksize for initialized device\n");
-		err = -EBUSY;
-		goto out_unlock;
-	}
+    disksize = PAGE_ALIGN(disksize);
+    if (!zram_meta_alloc(zram, disksize)) {
+        // 内存分配失败
+        err = -ENOMEM;
+        goto out_unlock;
+    }
 
-	disksize = PAGE_ALIGN(disksize);
-	if (!zram_meta_alloc(zram, disksize)) {
-		err = -ENOMEM;
-		goto out_unlock;
-	}
+    // 设置 zram 的大小
+    zram->disksize = disksize;
+    set_capacity_and_notify(zram->disk, zram->disksize >> SECTOR_SHIFT);
+    up_write(&zram->init_lock);
 
-	for (prio = 0; prio < ZRAM_MAX_COMPS; prio++) {
-		if (!zram->comp_algs[prio])
-			continue;
+    return len;
 
-		comp = zcomp_create(zram->comp_algs[prio]);
-		if (IS_ERR(comp)) {
-			pr_err("Cannot initialise %s compressing backend\n",
-			       zram->comp_algs[prio]);
-			err = PTR_ERR(comp);
-			goto out_free_comps;
-		}
-
-		zram->comps[prio] = comp;
-		zram->num_active_comps++;
-	}
-	zram->disksize = disksize;
-	set_capacity_and_notify(zram->disk, zram->disksize >> SECTOR_SHIFT);
-	up_write(&zram->init_lock);
-
-	return len;
-
-out_free_comps:
-	zram_destroy_comps(zram);
-	zram_meta_free(zram, disksize);
 out_unlock:
-	up_write(&zram->init_lock);
-	return err;
+    up_write(&zram->init_lock);
+    return err;
 }
 
 static ssize_t reset_store(struct device *dev,
