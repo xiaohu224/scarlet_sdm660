@@ -2179,58 +2179,45 @@ static void zram_reset_device(struct zram *zram)
 	up_write(&zram->init_lock);
 }
 
-static u64 calculate_zram_size(void)
-{
-    return (u64)totalram_pages() * PAGE_SIZE;
-}
-
-static u64 calculate_zram_size(void)
-{
-    return (u64)totalram_pages() * PAGE_SIZE; // 计算总物理内存大小
-}
-
 static ssize_t disksize_store(struct device *dev,
                                struct device_attribute *attr,
                                const char *buf, size_t len)
 {
     struct zram *zram = dev_to_zram(dev);
     u64 disksize;
-    struct zcomp *comp;
     int err;
-    u32 prio;
 
-    disksize = calculate_zram_size(); // 计算与物理内存大小相同的 zram 大小
-    if (!disksize)
-        return -EINVAL;
+    // 获取物理内存大小，并确保对齐
+    disksize = (u64)totalram_pages() * PAGE_SIZE;
+    disksize = PAGE_ALIGN(disksize); // 确保对齐到页面大小
 
     down_write(&zram->init_lock);
     if (init_done(zram)) {
-        err = -EBUSY; // 如果设备已经初始化，返回忙状态
+        err = -EBUSY;
         goto out_unlock;
     }
 
-    disksize = PAGE_ALIGN(disksize); // 对齐到页面大小
     if (!zram_meta_alloc(zram, disksize)) {
-        err = -ENOMEM; // 内存分配失败
+        err = -ENOMEM;
         goto out_unlock;
     }
 
     // 初始化压缩算法
-    for (prio = 0; prio < ZRAM_MAX_COMPS; prio++) {
+    for (u32 prio = 0; prio < ZRAM_MAX_COMPS; prio++) {
         if (!zram->comp_algs[prio])
             continue;
 
-        comp = zcomp_create(zram->comp_algs[prio]);
+        struct zcomp *comp = zcomp_create(zram->comp_algs[prio]);
         if (IS_ERR(comp)) {
             err = PTR_ERR(comp);
-            goto out_free_comps; // 初始化失败，释放已分配的资源
+            goto out_free_comps;
         }
         zram->comps[prio] = comp;
         zram->num_active_comps++;
     }
 
     zram->disksize = disksize; // 设置 zram 的大小
-    set_capacity_and_notify(zram->disk, zram->disksize >> SECTOR_SHIFT);
+    set_capacity(zram->disk, zram->disksize >> SECTOR_SHIFT); // 更新设备容量
     up_write(&zram->init_lock); // 释放锁
     return len;
 
@@ -2241,6 +2228,7 @@ out_unlock:
     up_write(&zram->init_lock); // 释放锁
     return err; // 返回错误码
 }
+
 
 static ssize_t reset_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t len)
