@@ -54,9 +54,7 @@ jobs:
             echo "成功 cherry-pick 提交: ${{ inputs.commit-hash }}"
           else
             echo "检测到冲突，处理中..."
-            # 创建新分支处理冲突
-            git checkout -b cherry-pick-conflicts
-
+            # 在目标分支上处理冲突
             # 获取冲突文件
             conflict_files=$(git diff --name-only --diff-filter=U)
 
@@ -64,12 +62,9 @@ jobs:
             git add .
             git commit -m "Cherry-picked non-conflicting changes from ${{ inputs.commit-hash }}"
 
-            # 推送新分支
-            git push origin cherry-pick-conflicts
-
-            # 创建 PR
-            echo "创建 PR 以处理冲突文件："
-            gh pr create --base ${{ inputs.target-branch }} --head cherry-pick-conflicts --title "处理冲突: ${{ inputs.commit-hash }}" --body "请处理以下冲突文件：\n\n${conflict_files}"
+            # 提示用户手动解决冲突
+            echo "请手动解决以下冲突文件，并提交更改："
+            echo "${conflict_files}"
 
             # 中止 cherry-pick
             git cherry-pick --abort || true
