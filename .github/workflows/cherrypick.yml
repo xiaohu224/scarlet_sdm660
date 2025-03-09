@@ -26,7 +26,7 @@ jobs:
       - name: Checkout 我的仓库
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # 获取完整历史以便于 cherry-pick
+          fetch-depth: 1  # 获取完整历史以便于 cherry-pick
 
       - name: 配置安全环境
         run: |
