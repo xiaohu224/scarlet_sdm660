@@ -26,7 +26,7 @@ jobs:
       - name: Checkout 我的仓库
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1  # 获取完整历史以便于 cherry-pick
+          fetch-depth: 0  # 获取完整历史以便于 cherry-pick
 
       - name: 配置安全环境
         run: |
@@ -45,8 +45,20 @@ jobs:
       - name: 处理合并提交
         run: |
           echo "尝试 cherry-pick 提交: ${{ inputs.commit-hash }}"
-          # 直接从源仓库 cherry-pick 特定提交
-          if git fetch "https://github.com/${{ inputs.source-repo }}.git" ${{ inputs.commit-hash }} && git cherry-pick FETCH_HEAD; then
+          # 尝试 cherry-pick 提交，判断是否为合并提交
+          if git fetch "https://github.com/${{ inputs.source-repo }}.git" ${{ inputs.commit-hash }}; then
+            # 检查是否为合并提交
+            if git rev-list --parents -n 1 ${{ inputs.commit-hash }} | grep -q " "; then
+              # 是合并提交，使用 -m 1 选择第一个父提交
+              git cherry-pick -m 1 FETCH_HEAD || true
+            else
+              # 不是合并提交
+              git cherry-pick FETCH_HEAD || true
+            fi
+          fi
+
+          # 检查 cherry-pick 是否成功
+          if [ $? -eq 0 ]; then
             echo "成功 cherry-pick 提交: ${{ inputs.commit-hash }}"
             # 提交更改
             git add .
