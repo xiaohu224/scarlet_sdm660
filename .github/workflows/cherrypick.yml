@@ -26,7 +26,7 @@ jobs:
       - name: Checkout 我的仓库
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1  # 获取完整历史
+          fetch-depth: 0  # 获取完整历史以便于 cherry-pick
 
       - name: 配置安全环境
         run: |
@@ -38,11 +38,6 @@ jobs:
           git config --global user.name "${{ inputs.git-username }}"  # 使用输入的 GitHub 用户名
           git config --global user.email "your-email@example.com"  # 替换为用户的电子邮件
 
-      - name: 添加源远程仓库
-        run: |
-          git remote add source-repo "https://github.com/${{ inputs.source-repo }}.git"
-          git fetch source-repo ${{ inputs.commit-hash }}  # 只拉取特定提交
-
       - name: 切换到目标分支
         run: |
           git checkout ${{ inputs.target-branch }}
@@ -50,8 +45,12 @@ jobs:
       - name: 处理合并提交
         run: |
           echo "尝试 cherry-pick 提交: ${{ inputs.commit-hash }}"
-          if git cherry-pick -m 1 "${{ inputs.commit-hash }}"; then
+          # 直接从源仓库 cherry-pick 特定提交
+          if git fetch "https://github.com/${{ inputs.source-repo }}.git" ${{ inputs.commit-hash }} && git cherry-pick FETCH_HEAD; then
             echo "成功 cherry-pick 提交: ${{ inputs.commit-hash }}"
+            # 提交更改
+            git add .
+            git commit -m "Cherry-picked changes from ${{ inputs.commit-hash }}"
           else
             echo "检测到冲突，处理中..."
             # 在目标分支上处理冲突
@@ -69,3 +68,7 @@ jobs:
             # 中止 cherry-pick
             git cherry-pick --abort || true
           fi
+
+      - name: 推送更改到远程分支
+        run: |
+          git push origin ${{ inputs.target-branch }}
