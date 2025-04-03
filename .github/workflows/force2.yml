@@ -53,7 +53,7 @@ jobs:
               echo "⚡ 检测到冲突，强制应用目标提交..."
               git checkout --theirs . 
               git add .
-              git -c user.name="AutoMergeBot" -c user.email="bot@noreply.com" cherry-pick --continue
+              git -c user.name="LKDenchin" -c user.email="lkdenchin@lkteam.com" cherry-pick --continue
             fi
           done
 
