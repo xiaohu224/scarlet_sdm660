@@ -149,7 +149,7 @@ int vfs_statx_fd(unsigned int fd, struct kstat *stat,
 EXPORT_SYMBOL(vfs_statx_fd);
 
 // KernelSU hook
-#ifdef CONFIG_KSU
+#ifdef CONFIG_KSU_MANUAL_HOOK
 extern int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags);
 #endif
 
@@ -176,7 +176,8 @@ int vfs_statx(int dfd, const char __user *filename, int flags,
 	int error = -EINVAL;
 	unsigned int lookup_flags = LOOKUP_FOLLOW | LOOKUP_AUTOMOUNT;
 
-#ifdef CONFIG_KSU
+	// KernelSU hook
+#ifdef CONFIG_KSU_MANUAL_HOOK
 	ksu_handle_stat(&dfd, &filename, &flags);
 #endif
 
