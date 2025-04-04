@@ -1,0 +1,6 @@
+
+config MI_POWER_SAVE
+    tristate "power save mode 2.0"
+    default n
+    help
+      Power Save Mode 2.0
