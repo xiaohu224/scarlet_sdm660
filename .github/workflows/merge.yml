@@ -13,7 +13,7 @@ on:
         description: '合并后的 Commit 标题'
         required: true
       target_branch:
-        description: '目标分支名称（将被覆盖）'
+        description: '目标分支（PR 将会合并到此分支）'
         required: true
 
 jobs:
@@ -23,16 +23,19 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0
 
       - name: 设置 Git 用户信息
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
 
-      - name: 切换到目标分支
+      - name: 检出目标分支并创建 squash 分支
         run: |
           git checkout ${{ inputs.target_branch }}
+          BRANCH_NAME=squash-auto-$(date +%s)
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_ENV
+          git checkout -b $BRANCH_NAME
 
       - name: 软重置到 start_commit（包含）
         run: |
@@ -42,6 +45,15 @@ jobs:
         run: |
           git commit -m "${{ inputs.squash_commit_title }}"
 
-      - name: 强制推送到远程
+      - name: 推送到远程 squash 分支
         run: |
-          git push origin ${{ inputs.target_branch }} --force
+          git push origin ${{ env.branch_name }}
+
+      - name: 创建 Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          title: "${{ inputs.squash_commit_title }}"
+          body: "本 PR 包含从 `${{ inputs.start_commit }}` 到 `${{ inputs.end_commit }}` 的 squash 提交"
+          head: ${{ env.branch_name }}
+          base: ${{ inputs.target_branch }}
