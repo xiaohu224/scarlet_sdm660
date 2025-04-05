@@ -24,7 +24,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          
+
       - name: 设置 Git 用户信息
         run: |
           git config user.name "${{ github.actor }}"
@@ -63,5 +63,6 @@ jobs:
           body: |
             🔀 本 PR 是由 GitHub Action 自动生成的 squash 操作。
             包含提交范围：`${{ inputs.start_commit }}` → `${{ inputs.end_commit }}`
-          head: ${{ env.branch_name }}
-          base: ${{ inputs.target_branch }}
+          branch: ${{ env.branch_name }}  # 使用 branch 而不是 head
+          base: ${{ inputs.target_branch }}  # 目标分支
+          labels: squash, auto-generated  # 可选标签
