@@ -1,0 +1,67 @@
+name: 合并commit
+
+on:
+  workflow_dispatch:
+    inputs:
+      start_commit:
+        description: '起始 Commit Hash（包含）'
+        required: true
+      end_commit:
+        description: '最终 Commit Hash（包含）'
+        required: true
+      squash_commit_title:
+        description: '合并后的 Commit 标题'
+        required: true
+      target_branch:
+        description: '目标分支（PR 将会合并到此分支）'
+        required: true
+
+jobs:
+  squash:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: 设置 Git 用户信息
+        run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+
+      - name: 检出目标分支并创建 squash 分支
+        run: |
+          git checkout ${{ inputs.target_branch }}
+          BRANCH_NAME=squash-auto-$(date +%s)
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_ENV
+          git checkout -b $BRANCH_NAME
+
+      - name: 执行软重置（兼容第一个提交）
+        run: |
+          if git rev-parse "${{ inputs.start_commit }}^" >/dev/null 2>&1; then
+            echo "起始提交有父节点，软重置到其 parent"
+            git reset --soft ${{ inputs.start_commit }}^
+          else
+            echo "起始提交无父节点（可能为初始提交），直接软重置到其本身"
+            git reset --soft ${{ inputs.start_commit }}
+          fi
+
+      - name: 创建 squash 提交
+        run: |
+          git commit -m "${{ inputs.squash_commit_title }}"
+
+      - name: 推送到远程 squash 分支
+        run: |
+          git push origin ${{ env.branch_name }}
+
+      - name: 创建 Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          title: "${{ inputs.squash_commit_title }}"
+          body: |
+            🔀 本 PR 是由 GitHub Action 自动生成的 squash 操作。
+            包含提交范围：`${{ inputs.start_commit }}` → `${{ inputs.end_commit }}`
+          head: ${{ env.branch_name }}
+          base: ${{ inputs.target_branch }}

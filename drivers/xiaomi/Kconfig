@@ -1,0 +1,2 @@
+source "drivers/xiaomi/dump_display/Kconfig"
+source "drivers/xiaomi/bootmonitor/Kconfig"

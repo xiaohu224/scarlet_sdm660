@@ -1,0 +1,76 @@
+name: 拉取提交
+on:
+  workflow_dispatch:
+    inputs:
+      commit-hash:
+        description: "目标合并提交的哈希值"
+        required: true
+      source-repo:
+        description: "源仓库的URL（格式：owner/repo）"
+        required: true
+      target-branch:
+        description: "您要将更改合并到的分支名称（本地分支）"
+        required: true
+      git-username:
+        description: "GitHub用户名（需repo权限）"
+        required: true
+      git-password:
+        description: "GitHub密码/PAT"
+        required: true
+        sensitive: true
+
+jobs:
+  cherry-pick:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 我的仓库
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1  # 获取完整历史
+
+      - name: 配置安全环境
+        run: |
+          echo "https://${{ inputs.git-username }}:${{ inputs.git-password }}@github.com" > .git-credentials
+          git config --global credential.helper 'store --file=.git-credentials'
+
+      - name: 设置 Git 用户信息
+        run: |
+          git config --global user.name "${{ inputs.git-username }}"  # 使用输入的 GitHub 用户名
+          git config --global user.email "your-email@example.com"  # 替换为用户的电子邮件
+
+      - name: 添加源远程仓库
+        run: |
+          git remote add source-repo "https://github.com/${{ inputs.source-repo }}.git"
+          git fetch source-repo ${{ inputs.commit-hash }}  # 只拉取特定提交
+
+      - name: 切换到目标分支
+        run: |
+          git checkout ${{ inputs.target-branch }}
+
+      - name: 处理合并提交
+        run: |
+          echo "尝试 cherry-pick 提交: ${{ inputs.commit-hash }}"
+          if git cherry-pick -m 1 "${{ inputs.commit-hash }}"; then
+            echo "成功 cherry-pick 提交: ${{ inputs.commit-hash }}"
+          else
+            echo "检测到冲突，处理中..."
+            # 创建新分支处理冲突
+            git checkout -b cherry-pick-conflicts
+
+            # 获取冲突文件
+            conflict_files=$(git diff --name-only --diff-filter=U)
+
+            # 提交没有冲突的文件
+            git add .
+            git commit -m "Cherry-picked non-conflicting changes from ${{ inputs.commit-hash }}"
+
+            # 推送新分支
+            git push origin cherry-pick-conflicts
+
+            # 创建 PR
+            echo "创建 PR 以处理冲突文件："
+            gh pr create --base ${{ inputs.target-branch }} --head cherry-pick-conflicts --title "处理冲突: ${{ inputs.commit-hash }}" --body "请处理以下冲突文件：\n\n${conflict_files}"
+
+            # 中止 cherry-pick
+            git cherry-pick --abort || true
+          fi

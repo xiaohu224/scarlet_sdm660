@@ -1,0 +1,118 @@
+name: 批量恢复提交
+
+on:
+  workflow_dispatch:
+    inputs:
+      target-repo:
+        description: "目标仓库的URL（格式：owner/repo）"
+      target-branch:
+        description: "目标仓库的分支名称"
+        default: "main"
+      commit-hashes: # 修改输入描述，说明使用逗号分隔
+        description: "需要恢复的提交哈希值列表 (使用逗号分隔)"
+        type: string
+      username:
+        description: "GitHub用户名"
+      password:
+        description: "GitHub密码"
+        required: false
+      use-pat:
+        description: "是否使用PAT认证"
+        default: "false"
+      revert-type:
+        description: "恢复类型：'revert'（默认）或 'reset'"
+        default: "revert"
+
+jobs:
+  revert:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout仓库（完整历史）
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 拉取完整提交历史
+
+      - name: 验证输入格式
+        run: |
+          # 检查target-repo格式是否为owner/repo
+          if [[ ! "${{ github.event.inputs.target-repo }}" =~ ^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$ ]]; then
+            echo "::error::仓库格式错误！请使用 'owner/repo' 格式"
+            exit 1
+          fi
+
+          # 检查 commit-hashes 是否为空
+          if [ -z "${{ github.event.inputs.commit-hashes }}" ]; then
+            echo "::error::必须提供至少一个提交哈希值"
+            exit 1
+          fi
+
+          # 检查每个 commit-hash 是否为40位哈希 (逗号分隔)
+          IFS=',' read -r -a commit_hash_array <<< "${{ github.event.inputs.commit-hashes }}"
+          for hash in "${commit_hash_array[@]}"; do
+            hash_trimmed=$(echo "$hash" | xargs) # 去除哈希前后的空格
+            if [[ ! "$hash_trimmed" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "::error::提交哈希格式无效: $hash_trimmed"
+              exit 1
+            fi
+          done
+
+      - name: 调试输入参数
+        run: |
+          echo "目标仓库: ${{ github.event.inputs.target-repo }}"
+          echo "目标分支: ${{ github.event.inputs.target-branch }}"
+          echo "恢复提交列表:"
+          echo "${{ github.event.inputs.commit-hashes }}"
+          echo "使用PAT: ${{ github.event.inputs.use-pat }}"
+          echo "恢复类型: ${{ github.event.inputs.revert-type }}"
+
+      - name: 配置Git身份
+        run: |
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+
+      - name: 添加远程仓库
+        run: |
+          git remote remove other-repo || true  # 防止重复添加
+
+          if [ "${{ github.event.inputs.use-pat }}" = "true" ]; then
+            git remote add other-repo "https://${{ secrets.PAT }}@github.com/${{ github.event.inputs.target-repo }}.git"
+          else
+            git remote add other-repo "https://${{ github.event.inputs.username }}:${{ github.event.inputs.password }}@github.com/${{ github.event.inputs.target-repo }}.git"
+          fi
+
+      - name: 验证远程分支存在性
+        run: |
+          if ! git ls-remote --exit-code --heads other-repo "${{ github.event.inputs.target-branch }}"; then
+            echo "::error::目标分支不存在或无权访问"
+            exit 1
+          fi
+
+      - name: 拉取目标提交
+        run: |
+          export GIT_TRACE=1
+          git fetch --progress other-repo "${{ github.event.inputs.target-branch }}"
+
+      - name: 批量恢复提交
+        run: |
+          set -x  # 启用命令回显
+          IFS=',' read -r -a commit_hash_array <<< "${{ github.event.inputs.commit-hashes }}"
+          for commit_hash in "${commit_hash_array[@]}"; do
+            commit_hash_trimmed=$(echo "$commit_hash" | xargs) # 去除哈希前后的空格
+            echo "处理提交哈希: $commit_hash_trimmed"
+            if [ "${{ github.event.inputs.revert-type }}" = "revert" ]; then
+              echo "🔄 使用 git revert 恢复提交: $commit_hash_trimmed"
+              git revert -m 1 "$commit_hash_trimmed"
+            elif [ "${{ github.event.inputs.revert-type }}" = "reset" ]; then
+              echo "⚠️  使用 git reset --hard 恢复提交: $commit_hash_trimmed"
+              git reset --hard "$commit_hash_trimmed"
+            else
+              echo "::error::无效的恢复类型！请选择 'revert' 或 'reset'"
+              exit 1
+            fi
+          done
+
+      - name: 推送变更
+        if: success()
+        run: |
+          # 使用强制推送以覆盖目标分支
+          git push --force-with-lease origin HEAD:"${{ github.event.inputs.target-branch }}"
