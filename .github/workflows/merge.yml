@@ -1,0 +1,86 @@
+name: 合并多个提交
+
+on:
+  workflow_dispatch:
+    inputs:
+      start_commit_hash:
+        description: '起始 Commit Hash (包含)'
+        required: true
+        type: string
+      end_commit_hash:
+        description: '结束 Commit Hash (包含)'
+        required: true
+        type: string
+      commit_message:
+        description: '新的提交信息'
+        required: true
+        type: string
+
+jobs:
+  squash_commits:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # 获取完整历史
+
+      - name: Check Git version
+        run: git --version
+
+      - name: Verify Commit Hashes
+        run: |
+          echo "检查起始 Commit Hash: ${{ github.event.inputs.start_commit_hash }}"
+          if ! git cat-file -e ${{ github.event.inputs.start_commit_hash }}^{commit}; then
+            echo "错误: 起始 Commit Hash '${{ github.event.inputs.start_commit_hash }}' 无效或不存在."
+            exit 1
+          fi
+          echo "起始 Commit Hash 验证通过。"
+
+          echo "检查结束 Commit Hash: ${{ github.event.inputs.end_commit_hash }}"
+          if ! git cat-file -e ${{ github.event.inputs.end_commit_hash }}^{commit}; then
+            echo "错误: 结束 Commit Hash '${{ github.event.inputs.end_commit_hash }}' 无效或不存在."
+            exit 1
+          fi
+          echo "结束 Commit Hash 验证通过。"
+
+
+      - name: Get Current Branch Name
+        id: branch_name
+        run: echo "BRANCH_NAME=$(git rev-parse --abbrev-ref HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Squash Commits in Range
+        run: |
+          echo "当前分支: ${{ steps.branch_name.outputs.BRANCH_NAME }}"
+          echo "起始 Commit Hash: ${{ github.event.inputs.start_commit_hash }}"
+          echo "结束 Commit Hash: ${{ github.event.inputs.end_commit_hash }}"
+          echo "目标 Commit 信息: ${{ github.event.inputs.commit_message }}"
+
+          START_COMMIT="${{ github.event.inputs.start_commit_hash }}"
+          END_COMMIT="${{ github.event.inputs.end_commit_hash }}"
+          CURRENT_BRANCH="${{ steps.branch_name.outputs.BRANCH_NAME }}"
+
+          # 尝试 reset 到 start_commit 的父 commit，如果 start_commit 是第一个 commit，则 reset 到 start_commit 本身
+          if ! git rev-parse --quiet --verify "${START_COMMIT}^"; then
+            echo "起始 Commit 是第一个 commit，reset 到起始 Commit 本身"
+            git reset --soft ${START_COMMIT}
+          else
+            echo "reset --soft 到 ${START_COMMIT}^"
+            git reset --soft ${START_COMMIT}^
+          fi
+
+          echo "merge --squash ${END_COMMIT}"
+          git merge --squash --no-commit ${END_COMMIT}
+
+          echo "git commit -m '${{ github.event.inputs.commit_message }}'"
+          git commit -m "${{ github.event.inputs.commit_message }}"
+
+          echo "Squash 完成，新的提交信息如下:"
+          git log -n 1 --pretty=format:"%H %s"
+
+      - name: Push Squashed Commit
+        run: |
+          echo "推送新的提交到 ${{ steps.branch_name.outputs.BRANCH_NAME }}"
+          git push origin ${{ steps.branch_name.outputs.BRANCH_NAME }} --force
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
