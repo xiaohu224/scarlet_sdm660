@@ -1,5 +1,4 @@
-name: Squash Commits to PR
-
+name: 合并commit
 on:
   workflow_dispatch:
     inputs:
@@ -23,7 +22,7 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0
 
       - name: 设置 Git 用户信息
         run: |
