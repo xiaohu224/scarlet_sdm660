@@ -23,12 +23,8 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1  # 初始检出最新的提交
-
-      - name: 限制 fetch 深度为 1000
-        run: |
-          git fetch --depth=1000
-
+          fetch-depth: 0
+          
       - name: 设置 Git 用户信息
         run: |
           git config user.name "${{ github.actor }}"
