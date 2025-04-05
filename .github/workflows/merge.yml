@@ -1,4 +1,4 @@
-name: 合并commit
+name: Squash Commits to PR
 
 on:
   workflow_dispatch:
@@ -37,9 +37,15 @@ jobs:
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_ENV
           git checkout -b $BRANCH_NAME
 
-      - name: 软重置到 start_commit（包含）
+      - name: 执行软重置（兼容第一个提交）
         run: |
-          git reset --soft ${{ inputs.start_commit }}^
+          if git rev-parse "${{ inputs.start_commit }}^" >/dev/null 2>&1; then
+            echo "起始提交有父节点，软重置到其 parent"
+            git reset --soft ${{ inputs.start_commit }}^
+          else
+            echo "起始提交无父节点（可能为初始提交），直接软重置到其本身"
+            git reset --soft ${{ inputs.start_commit }}
+          fi
 
       - name: 创建 squash 提交
         run: |
@@ -54,6 +60,8 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           title: "${{ inputs.squash_commit_title }}"
-          body: "本 PR 包含从 `${{ inputs.start_commit }}` 到 `${{ inputs.end_commit }}` 的 squash 提交"
+          body: |
+            🔀 本 PR 是由 GitHub Action 自动生成的 squash 操作。
+            包含提交范围：`${{ inputs.start_commit }}` → `${{ inputs.end_commit }}`
           head: ${{ env.branch_name }}
           base: ${{ inputs.target_branch }}
