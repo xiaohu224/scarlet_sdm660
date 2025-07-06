@@ -40,6 +40,9 @@
 #include <linux/sched.h>
 #include <linux/devfreq_boost.h>
 #include <uapi/linux/sched/types.h>
+#ifdef CONFIG_PAPER_OPLUS_BACKLIGHT
+#include <linux/input/tp_common.h>
+#endif
 #include "mdss_fb.h"
 #include "mdss_mdp_splash_logo.h"
 #define CREATE_TRACE_POINTS
@@ -114,6 +117,56 @@ static int mdss_fb_send_panel_event(struct msm_fb_data_type *mfd,
 					int event, void *arg);
 static void mdss_fb_set_mdp_sync_pt_threshold(struct msm_fb_data_type *mfd,
 		int type);
+
+static int lcd_backlight_registered;
+#ifdef CONFIG_PAPER_OPLUS_BACKLIGHT
+static struct led_classdev backlight_led;
+static void mdss_fb_set_bl_brightness(struct led_classdev *led_cdev,
+			enum led_brightness value);
+
+static int oplus_backlight_cover(int value)
+{
+	int input_min = 222, input_max = 8191;
+	int input_span = 7969, out_span = 4094;
+	int output_min = 1, output_max = 4095;
+
+	if (value <= input_min)
+		return output_min;
+	if (value >= input_max)
+		return output_max;
+
+	return (((value - input_min) * out_span * 2 + input_span) /
+		(input_span * 2)) + output_min;
+}
+
+static ssize_t oplus_backlight_show(struct kobject *kobj,
+			struct kobj_attribute *attr, char *buf)
+{
+	return 0;
+}
+
+static ssize_t oplus_backlight_store(struct kobject *kobj,
+			struct kobj_attribute *attr, const char *buf,
+			size_t count)
+{
+	int value = 0;
+
+	sscanf(buf, "%u", &value);
+	value = oplus_backlight_cover(value);
+
+	if (lcd_backlight_registered) {
+		enum led_brightness brightness = (enum led_brightness)value;
+		mdss_fb_set_bl_brightness(&backlight_led, brightness);
+	}
+
+	return count;
+}
+
+static struct tp_common_ops oplus_backlight_ops = {
+	.show = oplus_backlight_show,
+	.store = oplus_backlight_store,
+};
+#endif
 
 #ifdef CONFIG_MACH_LONGCHEER
 #define WAIT_RESUME_TIMEOUT 200
@@ -294,8 +347,6 @@ static int mdss_fb_notify_update(struct msm_fb_data_type *mfd,
 		ret = copy_to_user(argp, &to_user, sizeof(unsigned int));
 	return ret;
 }
-
-static int lcd_backlight_registered;
 
 static void mdss_fb_set_bl_brightness(struct led_classdev *led_cdev,
 				      enum led_brightness value)
@@ -1461,6 +1512,9 @@ static int mdss_fb_probe(struct platform_device *pdev)
 
 	INIT_DELAYED_WORK(&mfd->idle_notify_work, __mdss_fb_idle_notify_work);
 
+#ifdef CONFIG_PAPER_OPLUS_BACKLIGHT
+	tp_common_set_oplus_backlight_ops(&oplus_backlight_ops);
+#endif
 	return rc;
 }
 
