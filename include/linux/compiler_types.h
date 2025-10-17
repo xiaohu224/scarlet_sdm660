@@ -206,11 +206,6 @@ struct ftrace_likely_data {
  * and we opt in to the gnu89 semantics), or __GNUC_STDC_INLINE__ is not
  * defined so the gnu89 semantics are the default.
  */
-#ifdef __GNUC_STDC_INLINE__
-# define __gnu_inline	__attribute__((gnu_inline))
-#else
-# define __gnu_inline
-#endif
 
 #ifndef __norecordmcount
 #define __norecordmcount
