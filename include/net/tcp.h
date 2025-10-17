@@ -816,11 +816,6 @@ static inline u64 tcp_skb_timestamp_us(const struct sk_buff *skb)
 	return div_u64(skb->skb_mstamp_ns, NSEC_PER_USEC);
 }
 
-/* provide the departure time in us unit */
-static inline u64 tcp_skb_timestamp_us(const struct sk_buff *skb)
-{
-	return skb->skb_mstamp;
-}
 
 
 #define tcp_flag_byte(th) (((u_int8_t *)th)[13])
